@@ -1,0 +1,33 @@
+====================================================================
+ERD  <->  DATABASE CONSISTENCY CHECK
+====================================================================
+
+Drawn on the ERD : 13 entities, 35 attributes, 11 relationships
+In the database  : 31 tables, 206 columns, 29 foreign-key links
+
+Checks passed    : 59
+Declared gaps    : 18
+ERRORS           : 0
+
+--- tables not drawn, with a declared reason ---
+  data_erasure_log  ->  not drawn, declared as: pipeline and audit
+  dim_cost_type  ->  not drawn, declared as: analytical layer
+  dim_customer  ->  not drawn, declared as: analytical layer
+  dim_date  ->  not drawn, declared as: analytical layer
+  dim_project  ->  not drawn, declared as: analytical layer
+  etl_run  ->  not drawn, declared as: pipeline and audit
+  fact_daily_cashflow  ->  not drawn, declared as: analytical layer
+  ref_cost_category  ->  not drawn, declared as: attribute domain
+  ref_direct_cost_type  ->  not drawn, declared as: attribute domain
+  ref_invoice_status  ->  not drawn, declared as: attribute domain
+  ref_milestone_type  ->  not drawn, declared as: attribute domain
+  ref_order_status  ->  not drawn, declared as: attribute domain
+  ref_overhead_category  ->  not drawn, declared as: attribute domain
+  ref_payment_method  ->  not drawn, declared as: attribute domain
+  ref_product_category  ->  not drawn, declared as: attribute domain
+  ref_project_status  ->  not drawn, declared as: attribute domain
+  ref_schedule_status  ->  not drawn, declared as: attribute domain
+  stg_sevdesk_invoice  ->  not drawn, declared as: pipeline and audit
+
+RESULT: PASS - the ERD makes no claim the database does not support,
+               and every table is either drawn or declared.

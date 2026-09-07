@@ -1,0 +1,86 @@
+// =====================================================================
+// Baer Solar - OLAP star schema
+// Figure for the TECHNICAL LAYER chapter, not for the ERD chapter.
+//
+// This is a dimensional model, so it uses dimensional-model notation:
+// one central fact table surrounded by its dimensions. It is deliberately
+// NOT drawn in Chen notation - Chen models an operational domain, and
+// mixing the two conventions is exactly the kind of notation error the
+// Vakproject was marked down for.
+//
+// Render at edotor.net (Graphviz), engine "dot".
+// =====================================================================
+digraph BaerSolarStarSchema {
+  graph [rankdir=TB, nodesep=0.7, ranksep=1.1, splines=ortho,
+         fontname="Helvetica-Bold", fontsize=16, labelloc=t,
+         label="OLAP star schema - 30-day cash flow prognosis\nGrain: one row per date per project"];
+  node [fontname="Helvetica", fontsize=10, shape=plaintext];
+  edge [fontname="Helvetica", fontsize=9, arrowhead=none, color="#48566B"];
+
+  // ---------- FACT ----------
+  Fact [label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#1D4A78" BGCOLOR="#CFE0F1">
+      <TR><TD ALIGN="CENTER"><B>fact_daily_cashflow</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT COLOR="#48566B">date_key       (FK)</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT COLOR="#48566B">project_key    (FK)</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT COLOR="#48566B">customer_key   (FK)</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT COLOR="#48566B">cost_type_key  (FK)</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>expected_cash_in</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>expected_cash_out</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>net_cashflow</B></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="8" COLOR="#48566B">measures are additive</FONT></TD></TR>
+    </TABLE>>];
+
+  // ---------- DIMENSIONS ----------
+  DimDate [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" COLOR="#48566B" BGCOLOR="#E3E8EE">
+      <TR><TD ALIGN="CENTER"><B>dim_date</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>date_key</U></TD></TR>
+      <TR><TD ALIGN="LEFT">full_date</TD></TR>
+      <TR><TD ALIGN="LEFT">month_name, month_num</TD></TR>
+      <TR><TD ALIGN="LEFT">quarter, year</TD></TR>
+      <TR><TD ALIGN="LEFT">is_weekend</TD></TR>
+    </TABLE>>];
+
+  DimProject [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" COLOR="#48566B" BGCOLOR="#E3E8EE">
+      <TR><TD ALIGN="CENTER"><B>dim_project</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>project_key</U></TD></TR>
+      <TR><TD ALIGN="LEFT">project_id  (natural key)</TD></TR>
+      <TR><TD ALIGN="LEFT">project_name</TD></TR>
+      <TR><TD ALIGN="LEFT">status</TD></TR>
+      <TR><TD ALIGN="LEFT">total_value</TD></TR>
+    </TABLE>>];
+
+  DimCustomer [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" COLOR="#48566B" BGCOLOR="#E3E8EE">
+      <TR><TD ALIGN="CENTER"><B>dim_customer</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>customer_key</U></TD></TR>
+      <TR><TD ALIGN="LEFT">customer_id  (natural key)</TD></TR>
+      <TR><TD ALIGN="LEFT">customer_name</TD></TR>
+      <TR><TD ALIGN="LEFT">city, postal_code</TD></TR>
+    </TABLE>>];
+
+  DimCostType [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" COLOR="#48566B" BGCOLOR="#E3E8EE">
+      <TR><TD ALIGN="CENTER"><B>dim_cost_type</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>cost_type_key</U></TD></TR>
+      <TR><TD ALIGN="LEFT">cost_category</TD></TR>
+      <TR><TD ALIGN="LEFT">cost_subcategory</TD></TR>
+      <TR><TD ALIGN="LEFT">is_indirect</TD></TR>
+    </TABLE>>];
+
+  { rank=same; DimDate; DimProject; }
+  { rank=same; DimCustomer; DimCostType; }
+
+  DimDate     -> Fact [label=" 1 : N "];
+  DimProject  -> Fact [label=" 1 : N "];
+  Fact -> DimCustomer [label=" N : 1 ", dir=back];
+  Fact -> DimCostType [label=" N : 1 ", dir=back];
+
+  // ---------- SOURCE NOTE ----------
+  Note [shape=note, style=filled, fillcolor="#F7EFC3", color="#8A7A1E",
+        fontsize=9, margin=0.2,
+        label="Loaded by sp_refresh_cashflow_star() from the operational layer.\lDimensions are type 1: overwritten on each load, no history kept.\lJustified by the use case - the forecast answers 'what happens next',\lnot 'what did this project look like last month'.\l"];
+  Note -> Fact [style=dotted, color="#8A7A1E"];
+}

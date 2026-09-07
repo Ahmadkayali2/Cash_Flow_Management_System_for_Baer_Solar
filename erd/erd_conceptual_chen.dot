@@ -1,0 +1,198 @@
+// =====================================================================
+// Baer Solar - Entity-Relationship Diagram (Chen notation)
+// Postgraduaat Databeheer / KdG - Eindproject
+//
+// This is THE ERD for the project: one diagram, the business domain.
+// Render at edotor.net (Graphviz), engine "neato" or "fdp".
+//
+// NOTATION (one convention, applied everywhere - no crow's foot symbols):
+//   rectangle              regular entity
+//   double rectangle       weak entity (no independent identity)
+//   diamond                relationship
+//   double diamond         identifying relationship (owns a weak entity)
+//   ellipse                attribute        underlined = primary key
+//   dashed ellipse         derived attribute
+//   triangle               ISA specialisation
+//   (min,max)              participation of the ADJACENT entity, per the
+//                          Chen min-max convention
+//
+// DELIBERATELY NOT SHOWN, and why:
+//
+//   Reference tables (ref_project_status, ref_milestone_type, and nine
+//   others). These implement attribute DOMAINS - the list of values a
+//   column may take. Conceptually "status" is an attribute of Project
+//   with a limited value set, not an entity the business has. Every one
+//   of them is documented in the data dictionary, with its values.
+//
+//   The OLAP star schema (fact_daily_cashflow and its dimensions). That
+//   is a different workload, modelled in dimensional notation, and it
+//   belongs to the architecture chapter. Drawing a dimensional model in
+//   Chen notation would mix two conventions in one diagram.
+//
+//   Pipeline and audit tables (etl_run, stg_sevdesk_invoice,
+//   data_erasure_log). These support the import process and the GDPR
+//   accountability duty; they are not part of the business domain.
+//
+// Every entity, attribute and relationship that IS drawn here has a
+// matching table, column and foreign key in the DDL.
+// =====================================================================
+graph BaerSolarConceptual {
+  graph [rankdir=TB, splines=true, overlap=false, nodesep=0.45, ranksep=0.95,
+         fontname="Helvetica-Bold", fontsize=18, labelloc=t,
+         label="Baer Solar - Conceptual Data Model (Chen notation, min-max cardinality)"];
+  node  [fontname="Helvetica", fontsize=10];
+  edge  [fontname="Helvetica", fontsize=9, len=1.4];
+
+  // ---------- ENTITIES -------------------------------------------------
+  node [shape=box, style=filled, fillcolor="#E3E8EE", color="#48566B"];
+    Customer; Project; PaymentSchedule; Invoice; Supplier;
+    PurchaseOrder; Product; Cost; ProjectCost; OperationalCost; CashflowForecast;
+
+  // ---------- WEAK ENTITIES --------------------------------------------
+  node [shape=box, peripheries=2, fillcolor="#F6DAD6", color="#9C3B2E"];
+    Payment; ProjectProduct;
+
+  // ---------- RELATIONSHIPS --------------------------------------------
+  node [shape=diamond, peripheries=1, style=filled, fillcolor="#CFE0F1", color="#2C5C8F"];
+    r_places   [label="places"];
+    r_defines  [label="defines"];
+    r_bills    [label="bills"];
+    r_issues   [label="issues"];
+    r_orders   [label="orders"];
+    r_supplies [label="supplies"];
+    r_charges  [label="charges"];
+    r_forecasts[label="forecasts"];
+
+  // ---------- IDENTIFYING RELATIONSHIPS --------------------------------
+  node [shape=diamond, peripheries=2, style=filled, fillcolor="#F3C9DC", color="#8F2C5C"];
+    r_settles  [label="settles"];
+    r_contains [label="contains"];
+    r_listedAs [label="listed as"];
+
+  // ---------- ISA -------------------------------------------------------
+  node [shape=triangle, peripheries=1, style=filled, fillcolor="#F7EFC3", color="#8A7A1E"];
+    isa_Cost [label="ISA"];
+
+  // ---------- ATTRIBUTES ------------------------------------------------
+  node [shape=ellipse, peripheries=1, style=solid, fillcolor=none, color="#5B6675"];
+
+    // Customer -- address is atomic (1NF); no composite field remains
+    cu_id [label=<<U>customer_id</U>>]; cu_fn [label="first_name"];
+    cu_ln [label="last_name"];  cu_co [label="company_name"];
+    cu_em [label="email"];      cu_ph [label="phone"];
+    cu_st [label="street_name"];cu_hn [label="house_number"];
+    cu_pc [label="postal_code"];cu_ci [label="city"]; cu_cy [label="country"];
+    cu_ps [label="pseudonymized_at"];
+    Customer -- {cu_id cu_fn cu_ln cu_co cu_em cu_ph cu_st cu_hn cu_pc cu_ci cu_cy cu_ps};
+
+    pr_id [label=<<U>project_id</U>>]; pr_nm [label="project_name"];
+    pr_st [label="status"];            pr_tv [label="total_value"];
+    pr_sd [label="start_date"];        pr_ed [label="expected_completion_date"];
+    Project -- {pr_id pr_nm pr_st pr_tv pr_sd pr_ed};
+
+    ps_id [label=<<U>schedule_id</U>>]; ps_mc [label="milestone_code"];
+    ps_do [label="due_offset_days"];    ps_ea [label="expected_amount"];
+    ps_st [label="status"];
+    PaymentSchedule -- {ps_id ps_mc ps_do ps_ea ps_st};
+
+    in_id [label=<<U>invoice_id</U>>];  in_nr [label="invoice_number"];
+    in_dt [label="invoice_date"];       in_dd [label="due_date"];
+    in_am [label="amount"];             in_st [label="status"];
+    in_mc [label="milestone_code"];
+    Invoice -- {in_id in_nr in_dt in_dd in_am in_st in_mc};
+
+    pa_id [label=<<U>payment_id</U>>];  pa_dt [label="payment_date"];
+    pa_am [label="amount"];             pa_pm [label="payment_method"];
+    Payment -- {pa_id pa_dt pa_am pa_pm};
+
+    su_id [label=<<U>supplier_id</U>>]; su_nm [label="supplier_name"];
+    su_cl [label="credit_limit"];       su_pt [label="payment_terms_days"];
+    su_em [label="contact_email"];
+    Supplier -- {su_id su_nm su_cl su_pt su_em};
+
+    po_id [label=<<U>order_id</U>>];    po_od [label="order_date"];
+    po_dd [label="expected_delivery_date"]; po_ta [label="total_amount"];
+    po_st [label="status"];
+    PurchaseOrder -- {po_id po_od po_dd po_ta po_st};
+
+    pd_id [label=<<U>product_id</U>>];  pd_nm [label="product_name"];
+    pd_ct [label="category"];           pd_uc [label="unit_cost"];
+    Product -- {pd_id pd_nm pd_ct pd_uc};
+
+    pp_qt [label="quantity"];           pp_up [label="unit_price_charged"];
+    ProjectProduct -- {pp_qt pp_up};
+
+    co_id [label=<<U>cost_id</U>>];     co_am [label="amount"];
+    co_dt [label="cost_date"];          co_cc [label="cost_category"];
+    Cost -- {co_id co_am co_dt co_cc};
+
+    pc_ty [label="direct_cost_type"];  ProjectCost     -- pc_ty;
+    oc_ca [label="overhead_category"]; OperationalCost -- oc_ca;
+
+    cf_id [label=<<U>forecast_id</U>>]; cf_dt [label="forecast_date"];
+    cf_in [label="expected_cash_in"];   cf_out[label="expected_cash_out"];
+    cf_fs [label="flow_source"];
+    CashflowForecast -- {cf_id cf_dt cf_in cf_out cf_fs};
+    // derived: net = in - out
+    cf_net [label="net_cashflow", style=dashed];
+    CashflowForecast -- cf_net [style=dashed];
+
+  // ---------- RELATIONSHIP EDGES (min,max on the adjacent entity) -------
+  edge [style=solid, color="#2C5C8F", fontcolor="#20304A"];
+
+    Customer        -- r_places   [headlabel="(0,N)"];
+    r_places        -- Project    [headlabel="(1,1)"];
+
+    Project         -- r_defines  [headlabel="(0,N)"];
+    r_defines       -- PaymentSchedule [headlabel="(1,1)"];
+
+    Project         -- r_issues   [headlabel="(0,N)"];
+    r_issues        -- Invoice    [headlabel="(1,1)"];
+
+    PaymentSchedule -- r_bills    [headlabel="(0,N)"];
+    r_bills         -- Invoice    [headlabel="(0,1)"];
+
+    Supplier        -- r_supplies [headlabel="(0,N)"];
+    r_supplies      -- PurchaseOrder [headlabel="(1,1)"];
+
+    Project         -- r_orders   [headlabel="(0,N)"];
+    r_orders        -- PurchaseOrder [headlabel="(1,1)"];
+
+    Project         -- r_charges  [headlabel="(0,N)"];
+    r_charges       -- ProjectCost [headlabel="(1,1)"];
+
+    Project         -- r_forecasts[headlabel="(0,N)"];
+    r_forecasts     -- CashflowForecast [headlabel="(0,1)"];
+
+  edge [color="#8F2C5C", fontcolor="#5C1C3B"];
+    Invoice         -- r_settles  [headlabel="(0,N)"];
+    r_settles       -- Payment    [headlabel="(1,1)"];
+
+    Project         -- r_contains [headlabel="(0,N)"];
+    r_contains      -- ProjectProduct [headlabel="(1,1)"];
+
+    Product         -- r_listedAs [headlabel="(0,N)"];
+    r_listedAs      -- ProjectProduct [headlabel="(1,1)"];
+
+  // ---------- ISA: disjoint and total ----------------------------------
+  edge [color="#8A7A1E", fontcolor="#5C520F", style=solid];
+    Cost            -- isa_Cost   [label="d, total"];
+    isa_Cost        -- ProjectCost;
+    isa_Cost        -- OperationalCost;
+
+  // ---------- LEGEND ----------------------------------------------------
+  subgraph cluster_legend {
+    label="Legend"; fontsize=11; style=dashed; color="#8A96A6";
+    node [shape=plaintext, fontsize=9];
+    L [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="3">
+      <TR><TD ALIGN="LEFT">rectangle</TD><TD ALIGN="LEFT">regular entity</TD></TR>
+      <TR><TD ALIGN="LEFT">double rectangle</TD><TD ALIGN="LEFT">weak entity</TD></TR>
+      <TR><TD ALIGN="LEFT">diamond</TD><TD ALIGN="LEFT">relationship</TD></TR>
+      <TR><TD ALIGN="LEFT">double diamond</TD><TD ALIGN="LEFT">identifying relationship</TD></TR>
+      <TR><TD ALIGN="LEFT">ellipse</TD><TD ALIGN="LEFT">attribute (underlined = key)</TD></TR>
+      <TR><TD ALIGN="LEFT">dashed ellipse</TD><TD ALIGN="LEFT">derived attribute</TD></TR>
+      <TR><TD ALIGN="LEFT">triangle</TD><TD ALIGN="LEFT">ISA, d = disjoint</TD></TR>
+      <TR><TD ALIGN="LEFT">(min,max)</TD><TD ALIGN="LEFT">participation of the adjacent entity</TD></TR>
+    </TABLE>>];
+  }
+}
