@@ -3,7 +3,7 @@
 -- Full schema DDL, generated directly from the live Supabase project
 -- (tppnycgtsrgbnukemtoh) rather than written by hand, so it cannot drift
 -- from the database the thesis describes.
---
+--/Users/ahmadsmac/Eindprject - Databeheer/repo/db/functions.sql
 -- Order: tables, then constraints (primary key, unique, foreign key, check),
 -- then secondary indexes, then triggers, then views.
 -- ============================================================================
