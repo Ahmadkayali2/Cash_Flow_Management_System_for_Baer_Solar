@@ -90,7 +90,10 @@ def parse_dot(path):
 
     # attribute nodes:  cu_id [label=<<U>customer_id</U>>]   /   [label="city"]
     attr_col = {}
-    for node, lbl in re.findall(r'^\s*([a-z][a-z0-9_]*)\s*\[label=(<<U>[^<]+</U>>|"[^"]+")', src, re.M):
+    # NOTE: the pattern below deliberately allows a match after a ';' as well as
+    # at the start of a line. The .dot file declares two attributes on one line in
+    # most entity blocks, so a line-anchored match saw only the first of each pair.
+    for node, lbl in re.findall(r'(?:^|;)\s*([a-z][a-z0-9_]*)\s*\[label=(<<U>[^<]+</U>>|"[^"]+")', src, re.M):
         if node in nonattr:
             continue          # a relationship diamond, not an attribute
         col = re.sub(r'^<<U>|</U>>$|^"|"$', '', lbl)
