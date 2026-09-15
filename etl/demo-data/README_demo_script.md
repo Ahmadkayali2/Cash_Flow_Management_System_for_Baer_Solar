@@ -66,15 +66,73 @@ Two different reasons for two different outcomes: RE-2026-0213 is a small
 *invoice* on a large project, so it is billed on its own and does not
 consume a stage.
 
-## 5. `05_batch_liquidity_stress.csv` — the business case
-Pushes five October milestones into the forecast window.
+## 5. Where the liquidity case is shown
 
-**Say:** "This is the question the owner actually needs answered."
-**Show:** the 30-day cumulative line and the liquidity alert. The dip
-below the buffer is the working-capital squeeze he described in the
-interview — produced by the system, not asserted in a slide.
+There is no fifth file, and that is a deliberate correction rather than an
+omission. An earlier version of this script had
+`05_batch_liquidity_stress.csv`, described as pushing five October
+milestones into the forecast window to produce the dip. Tested on
+14 September 2026, it moved nothing on the chart at all: the totals, the
+minimum and maximum position and the five liquidity alert days were
+byte-identical before and after the import.
+
+The reason is in BR-3, and it is worth being able to say out loud. Cash in
+comes from `payment_schedule` rows, and a schedule row's date is the
+project's `start_date` plus its `due_offset_days`. Those rows exist from the
+moment the project does. Importing an invoice links it to its schedule row
+and moves that row from `Pending` to `Invoiced`, and BR-3 counts `Pending`,
+`Invoiced` and `Overdue` alike. So **no invoice CSV can change the forecast
+line.** It changes the receivables figure, which is money billed but not yet
+paid, and that is a different question from when money arrives.
+
+Nothing that moves the forecast out is importable either: cash out comes
+from purchase orders and operational costs, and the import pipeline accepts
+invoices only.
+
+**So show the dip where it already is.** After `rpc_rebase_demo_dates()`, the
+chart opens below zero and crosses the buffer twice more. That is stronger
+than an upload, because it is the current position of the business rather
+than a scenario loaded to make a point.
+
+**Say:** "The squeeze is not something I loaded to show you. It is what the
+forecast says about the next thirty days as the data stands."
 
 ---
+
+## Re-anchoring the calendar before a rehearsal or the defence
+
+The demonstration data is synthetic and its dates were authored around
+13 September 2026. The forecast window is forward-looking, so every day
+that passes pushes another supplier obligation out of the window. One day
+after those dates were written, the 10,600 EUR dip on day one had already
+dropped out and `v_liquidity_alert` returned nothing worth showing.
+
+Run this first, before the reset:
+
+```sql
+SELECT rpc_rebase_demo_dates();
+```
+
+It shifts every business date in the demonstration dataset by the same
+whole number of days, so the newest purchase order always sits three days
+before today, then reruns the pipeline. Amounts, relationships and every
+business rule are untouched: only the calendar moves. Running it twice on
+the same day does nothing the second time, and the report tells you the
+shift it applied:
+
+```json
+{
+  "shiftDays": 1,
+  "rowsShifted": { "project": 13, "purchase_order": 9, "invoice": 17, ... },
+  "liquidityAlerts": [ 2 NEGATIVE days at -10,600, 3 BELOW_BUFFER days ],
+  "kpiAfterRebase": { "outstanding_receivables": 57500, ... }
+}
+```
+
+Verified on 14 September 2026: after the rebase the KPI cards, the five
+liquidity alert days, the 5 overdue / 3 due-soon split on Supplier Watch
+and the star schema totals all match the figures in Chapters 8 and 9
+exactly, and no amount or row count changed.
 
 ## Resetting between rehearsals
 

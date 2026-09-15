@@ -555,3 +555,111 @@ CREATE OR REPLACE FUNCTION public.rpc_pseudonymize_customer(p_customer_id bigint
 AS $function$
 BEGIN CALL execute_customer_pseudonymization(p_customer_id, CURRENT_TIMESTAMP, p_executed_by); END;
 $function$;
+
+-- ---------------------------------------------------------------------
+-- rpc_rebase_demo_dates
+--
+-- Demonstration helper, not a business rule.
+--
+-- The demonstration dataset is synthetic. Its dates were authored around
+-- 13 September 2026, and because the forecast window is forward-looking,
+-- every day that passes pushes another supplier obligation out of the
+-- window until the dashboard has nothing left to show. This function
+-- shifts every business date in the dataset by one whole number of days
+-- so the same scenario sits in the window on whatever day it is run.
+--
+-- Anchor rule: the newest purchase order always sits 3 days before today,
+-- which is the state the thesis figures were read in. The shift is derived
+-- from the data itself, so running it twice on the same day is a no-op and
+-- it needs no stored state and no extra table.
+--
+-- Amounts, relationships, statuses and every business rule are untouched.
+-- Only the calendar moves.
+-- ---------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.rpc_rebase_demo_dates()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+    c_lag       CONSTANT INT := 3;
+    v_max_order DATE;
+    v_shift     INT;
+    v_project   INT := 0;
+    v_order     INT := 0;
+    v_cost      INT := 0;
+    v_invoice   INT := 0;
+    v_payment   INT := 0;
+    v_kpi       JSONB;
+    v_alerts    JSONB;
+BEGIN
+    SELECT max(order_date) INTO v_max_order FROM purchase_order;
+
+    IF v_max_order IS NULL THEN
+        RETURN jsonb_build_object(
+            'shiftDays', 0,
+            'note', 'no purchase orders found; nothing to rebase');
+    END IF;
+
+    v_shift := (CURRENT_DATE - c_lag) - v_max_order;
+
+    IF v_shift <> 0 THEN
+        UPDATE project
+           SET start_date               = start_date + v_shift,
+               expected_completion_date = expected_completion_date + v_shift;
+        GET DIAGNOSTICS v_project = ROW_COUNT;
+
+        UPDATE purchase_order
+           SET order_date             = order_date + v_shift,
+               expected_delivery_date = expected_delivery_date + v_shift;
+        GET DIAGNOSTICS v_order = ROW_COUNT;
+
+        UPDATE cost
+           SET cost_date = cost_date + v_shift;
+        GET DIAGNOSTICS v_cost = ROW_COUNT;
+
+        UPDATE invoice
+           SET invoice_date = invoice_date + v_shift,
+               due_date     = due_date + v_shift;
+        GET DIAGNOSTICS v_invoice = ROW_COUNT;
+
+        UPDATE payment
+           SET payment_date = payment_date + v_shift;
+        GET DIAGNOSTICS v_payment = ROW_COUNT;
+    END IF;
+
+    -- payment_schedule stores an offset, not a date, so the schedule, the
+    -- classifications, the forecast and the star schema are all regenerated
+    -- by the same pipeline the import uses.
+    CALL sp_run_cashflow_pipeline(30);
+
+    SELECT to_jsonb(k) INTO v_kpi FROM v_dashboard_kpi k;
+
+    SELECT coalesce(
+             jsonb_agg(jsonb_build_object(
+                 'date',     full_date,
+                 'position', cumulative_position,
+                 'status',   liquidity_status) ORDER BY full_date),
+             '[]'::jsonb)
+      INTO v_alerts
+      FROM v_liquidity_alert;
+
+    RETURN jsonb_build_object(
+        'shiftDays',       v_shift,
+        'anchorRule',      format('newest purchase order sits %s days before today', c_lag),
+        'rowsShifted',     jsonb_build_object(
+                               'project',        v_project,
+                               'purchase_order', v_order,
+                               'cost',           v_cost,
+                               'invoice',        v_invoice,
+                               'payment',        v_payment),
+        'liquidityAlerts', v_alerts,
+        'kpiAfterRebase',  v_kpi);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.rpc_rebase_demo_dates() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.rpc_rebase_demo_dates() TO postgres;
+GRANT EXECUTE ON FUNCTION public.rpc_rebase_demo_dates() TO app_finance;
